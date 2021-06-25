@@ -6,7 +6,9 @@ mod filter;
 mod sorter;
 
 fn is_glob(s: &str) -> bool {
-	s.contains(&['*', '?', '['])
+	s
+	.chars()
+	.any(|c| c == '*' || c == '?' || c == '[')
 }
 
 #[cfg(not(windows))]
@@ -22,11 +24,11 @@ fn trim_folder(folder: &str, s: &str) -> String {
 		s.to_string()
 	} else {
 		let chars: Vec<_> = folder.chars().collect();
-		s.iter()
+		s.chars()
 			.enumerate()
 			.skip_while(|(i, c)| {
 				if let Some(x) = chars.get(*i) {
-					x == c || x.to_uppercase() == c.to_uppercase()
+					x == c || x.to_uppercase().eq(c.to_uppercase())
 				} else {
 					false
 				}

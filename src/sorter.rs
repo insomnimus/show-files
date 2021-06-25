@@ -1,5 +1,9 @@
-use crate::FilePath;
-use std::cmp::{Ordering, PartialOrd};
+use crate::filepath::FilePath;
+use std::{
+cmp::{Ordering, PartialOrd},
+path::PathBuf,
+fs::Metadata,
+};
 
 pub enum SortBy {
 	None,
@@ -13,7 +17,7 @@ pub enum SortBy {
 impl SortBy {
 	pub fn sort_ascending(&self, files: &mut Vec<FilePath>) {
 		files.sort_by(|a, b| match self {
-			self::None => Ordering::Equal,
+			Self::None => Ordering::Equal,
 			Self::Name => cmp_opt(a.path.file_stem().as_ref(), b.path.file_stem().as_ref()),
 			Self::DateCreated => cmp_opt(&a.date_created, &b.date_created),
 			Self::LastModified => cmp_opt(&a.last_modified, &b.last_modified),
@@ -23,7 +27,7 @@ impl SortBy {
 
 	pub fn sort_descending(&self, files: &mut Vec<FilePath>) {
 		files.sort_by(|b, a| match self {
-			self::None => Ordering::Greater,
+			Self::None => Ordering::Greater,
 			Self::Name => cmp_opt(a.path.file_stem().as_ref(), b.path.file_stem().as_ref()),
 			Self::DateCreated => cmp_opt(&a.date_created, &b.date_created),
 			Self::LastModified => cmp_opt(&a.last_modified, &b.last_modified),
@@ -31,7 +35,7 @@ impl SortBy {
 		})
 	}
 
-	pub fn new_file_path(&self, path: PathBuf, md: &Metadata) -> FilePath {
+	pub fn new_file_path(&self, p: PathBuf, md: &Metadata) -> FilePath {
 		match self {
 			Self::None => FilePath::new(p),
 			Self::Size => FilePath::with_size(p, md.len()),
@@ -43,18 +47,17 @@ impl SortBy {
 }
 
 pub struct Sorter {
-	descending: bool,
-	sort_by: SortBy,
+	pub descending: bool,
+	pub sort_by: SortBy,
 }
 
 impl Sorter {
-	pub fn new(descending: bool, sort_by: SortBy) -> Self {
-		Self {
+	pub fn new(descending: bool, sort_by: SortBy) -> Self{
+		Self{
 			descending,
 			sort_by,
 		}
 	}
-
 	pub fn sort(&self, files: &mut Vec<FilePath>) {
 		if self.descending {
 			self.sort_by.sort_descending(files);

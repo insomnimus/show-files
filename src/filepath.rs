@@ -12,7 +12,7 @@ impl FilePath {
 	pub fn new(path: PathBuf) -> Self {
 		Self {
 			path,
-			..[Default::default()]
+			..[Default::default]
 		}
 	}
 

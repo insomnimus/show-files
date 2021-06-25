@@ -1,6 +1,6 @@
 use clap::{crate_version, App, AppSettings, Arg};
 
-const SORT_VALUES: &[str] = &[
+const SORT_VALUES: &[&str] = &[
 	"none",
 	"name",
 	"date-created",

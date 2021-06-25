@@ -2,6 +2,7 @@ use glob::{self, MatchOptions};
 use std::{fs, io::ErrorKind};
 
 use crate::{
+	filepath::FilePath,
 	app,
 	displayer::{Displayer, SpaceOpt},
 	filter::{FileType, Filter, HiddenType},
@@ -48,9 +49,9 @@ impl Cmd {
 		};
 
 		let file_type = if m.is_present("files") {
-			FileType::Files
+			FileType::File
 		} else if m.is_present("directories") {
-			FileType::Folders
+			FileType::Folder
 		} else {
 			FileType::Any
 		};
@@ -64,16 +65,16 @@ impl Cmd {
 		};
 
 		let space_opt = if m.is_present("quote") {
-			SpaceOpt::Quote
+			SpaceOpt::Quoted
 		} else if m.is_present("escape") {
-			SpaceOpt::Escape
+			SpaceOpt::Escaped
 		} else {
 			SpaceOpt::Bare
 		};
 
 		let one_per_line = m.is_present("one-per-line");
 
-		let args = m.values_of("pattern").map(String::from).unwrap_or_default();
+		let args = m.values_of("pattern").map(|i| i.map(String::from).collect::<Vec<_>>()).unwrap_or_default();
 
 		let filter = Filter { file_type, hidden };
 		let displayer = Displayer {
@@ -158,13 +159,12 @@ impl Cmd {
 						}
 						// the arg is a glob pattern here
 						ErrorKind::NotFound => {
-							Some(
 								glob::glob_with(&a, opt)
-									.unwrap_or_else(|e| {
+									.map_err(|e| {
 										eprintln!("{}: error: {:?}", &a, &e);
 										err_code(2);
-										vec![]
 									})
+									.map(|iter| iter
 									.filter_map(Result::ok)
 									.filter_map(|p| {
 										// only request .metadata if it's required or wanted
@@ -178,7 +178,8 @@ impl Cmd {
 										}
 									})
 									.collect::<Vec<FilePath>>(),
-							)
+									)
+							.ok()
 						}
 						_ => {
 							eprintln!("{}: error: {:?}", &a, &e);
@@ -193,10 +194,10 @@ impl Cmd {
 				self.sorter.sort(&mut files);
 				let files: Vec<String> = files
 					.into_iter()
-					.filter_map(|fp| fp.path.to_os_string().to_string().ok())
+					.filter_map(|fp| fp.path.into_os_string().into_string().ok())
 					.map(|s| {
 						if arg_is_dir {
-							super::trim_folder(&a, s)
+							super::trim_folder(&a, &s)
 						} else {
 							s
 						}
@@ -231,12 +232,12 @@ impl Cmd {
 				files
 					.filter_map(Result::ok)
 					.filter(|p| {
-						if self.filter.hidden == HiddenOpt::Any {
+						if self.filter.hidden == HiddenType::Any {
 							true
 						} else {
 							p.file_name()
 								.to_os_string()
-								.to_string()
+								.into_string()
 								.map(|s| self.filter.hidden.is_match(&s))
 								.unwrap_or(false)
 						}
@@ -245,11 +246,11 @@ impl Cmd {
 					.filter_map(|p| {
 						// only request .metadata if it's required or wanted
 						if !self.should_metadata() {
-							Some(FilePath::new(p))
+							Some(FilePath::new(p.path()))
 						} else {
 							// metadata is needed
 							p.metadata()
-								.map(|md| self.sorter.sort_by.new_file_path(p, &md))
+								.map(|md| self.sorter.sort_by.new_file_path(p.path(), &md))
 								.ok()
 						}
 					})
@@ -266,8 +267,8 @@ impl Cmd {
 				// trim the "./" prefix
 				let files: Vec<String> = files
 					.into_iter()
-					.filter_map(|fp| fp.path.to_os_string().to_string().ok())
-					.map(|s| s.trim_start_matches("./"))
+					.filter_map(|fp| fp.path.into_os_string().into_string().ok())
+					.map(|s| s.trim_start_matches("./").to_string())
 					.collect();
 
 				if !files.is_empty() {
@@ -276,5 +277,11 @@ impl Cmd {
 				0
 			}
 		}
+	}
+	
+	fn should_metadata(&self) -> bool{
+		self.filter.file_type != FileType::Any ||
+		!matches!(self.sorter.sort_by, SortBy::None | SortBy::Name)
+		
 	}
 }

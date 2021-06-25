@@ -1,5 +1,6 @@
 use std::fs::Metadata;
 
+#[derive(PartialEq)]
 pub enum FileType {
 	Any,
 	File,
@@ -16,6 +17,7 @@ impl FileType {
 	}
 }
 
+#[derive(PartialEq)]
 pub enum HiddenType {
 	Any,
 	Hidden,

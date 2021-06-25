@@ -1,7 +1,10 @@
+use std::mem;
+use terminal_size::terminal_size;
+
 pub enum SpaceOpt {
 	Bare,
-	Quote,
-	Escape,
+	Quoted,
+	Escaped,
 }
 
 impl SpaceOpt {
@@ -24,7 +27,7 @@ pub struct Displayer {
 impl Displayer {
 	pub fn print(&self, files: Vec<String>) {
 		if self.one_per_line {
-			self.print_one_per_line(files);
+			self.print_one_per_line(&files);
 		} else {
 			self.print_cell(files);
 		}
@@ -37,16 +40,12 @@ impl Displayer {
 	}
 
 	fn print_cell(&self, mut files: Vec<String>) {
-		let term_size = terminal_size().map(|x| x.0).map(|n| n - 1).unwrap_or(128);
+		let term_size = terminal_size().map(|x| x.0.0).unwrap_or(128) -1;
 		for mut f in &files {
-			*f = f.trim_start_matches("./");
-			#[cfg(windows)]
-			*f = f.trim_start_matches(".\\");
-
 			*f = self.space_opt.format(&f);
 		}
 
-		let mut rows = Rows::new(term_size, files);
+		let mut rows = Rows::new(term_size as usize, files, 4);
 		for row in rows {
 			println!("{}", row);
 		}
@@ -61,13 +60,14 @@ struct RowBuf {
 }
 
 impl RowBuf {
-	fn new(max_size: usize, items: &[str]) -> Self {
+	fn new(max_size: usize, items: &[String], min_spaces: usize) -> Self {
 		let mut n_col = items.len();
 		while n_col >= 1 {
 			let max = items
 				.chunks(n_col)
-				.map(|i| i.map(|s| s.len()).sum() + min_spaces * (n_col - 1))
-				.max();
+				.map(|i| i.iter().map(|s| s.len()).sum::<usize>() + min_spaces * (n_col - 1))
+				.max()
+				.unwrap_or(100);
 			if max <= max_size {
 				return Self {
 					n_col,
@@ -82,7 +82,7 @@ impl RowBuf {
 
 		Self {
 			n_col: 1,
-			col_len: items.iter().map(|s| s.len()).max(),
+			col_len: items.iter().map(|s| s.len()).max().unwrap_or(100),
 			col_index: 0,
 			buff: String::new(),
 		}
@@ -106,7 +106,7 @@ impl RowBuf {
 	}
 
 	fn flush(&mut self) -> String {
-		mem::take(self.buff)
+		mem::take(&mut self.buff)
 	}
 }
 
@@ -116,9 +116,9 @@ pub struct Rows {
 }
 
 impl Rows {
-	pub fn new(max_size: usize, items: Vec<String>) -> Self {
+	pub fn new(max_size: usize, items: Vec<String>, max_spaces: usize) -> Self {
 		Self {
-			buff: RowBuff::new(&items),
+			buff: RowBuf::new(max_size, &items, max_spaces),
 			items,
 		}
 	}
@@ -131,7 +131,7 @@ impl Iterator for Rows {
 			return None;
 		}
 		while !self.items.is_empty() {
-			if let Some(s) = self.buff.push(self.remove(0)) {
+			if let Some(s) = self.buff.push(&self.items.remove(0)) {
 				return Some(s);
 			}
 		}
