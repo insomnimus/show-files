@@ -38,6 +38,16 @@ impl SortBy{
 			},
 		})
 	}
+	
+	pub fn new_file_path(&self, path: PathBuf, md: &Metadata) -> FilePath{
+		match self{
+			Self::None=> FilePath::new(p),
+			Self::Size=> FilePath::with_size(p, md.len()),
+			Self::DateCreated=> FilePath::with_date_created(p, md.created()),
+			Self::LastModified=> FilePath::with_last_modified(p, md.modified()),
+			Self::LastAccessed=> FilePath::with_last_accessed(p, md.accessed()),
+		}
+	}
 }
 
 pub struct Sorter{

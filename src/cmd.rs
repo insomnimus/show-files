@@ -1,3 +1,9 @@
+use glob::{self, MatchOptions};
+use std::{
+	fs,
+	io::ErrorKind,
+};
+
 use crate::{
 	sorter::{Sorter, SortBy},
 	filter::{Filter, FileType, HiddenType},
@@ -82,6 +88,7 @@ impl Cmd{
 		if self.args.is_empty() {
 			return self.run_pwd();
 		}
+		
 		let opt= MatchOptions{
 			case_sensitive: false,
 			require_literal_separator: true,
@@ -111,102 +118,184 @@ impl Cmd{
 			}
 		};
 		
-		let mut files: Vec<FilePath>= vec![];
-		
 		for a in &self.args{
+			let mut arg_is_dir= false;
 			// first check if it's a file or a dir
 			// if it's not but is a glob pattern, execute it
-			match  fs::metadata(&a) {
-				Ok(md) => err_code(self.print_top_md(&a, md) != 0),
+			let maybe_files = match  fs::metadata(&a) {
+				Ok(md) => {
+					if md.is_file() {
+						println!("\n{}", &a);
+						None
+					}else{
+						arg_is_dir=true;
+						match self.read_dir(&a) {
+							Err(code)=> {err_code(code); None}
+							Ok(files) => Some(files),
+						}
+					}
+				}
 				Err(e) => {
 					match e.kind() {
 						ErrorKind::NotFound if !is_glob(&a) => {
 							eprintln!("{}: the system cannot find the file specified", &a);
 							err_code(2);
+							None
 						}
 						ErrorKind::PermissionDenied=> {
 							eprintln!("{}: permission denied", &a);
 							err_code(1);
+							None
 						}
+						// the arg is a glob pattern here
 						ErrorKind::NotFound=> {
-							files.extend(glob::glob_with(&a, opt)
+							Some(glob::glob_with(&a, opt)
 							.unwrap_or_else(|e| {
 								eprintln!("{}: error: {:?}", &a, &e);
 								err_code(2);
 								vec![]
 								})
 							.filter_map(Result::ok)
-							.filter(|x| self.filter.file_type.is_match_path(&x))
-							.map(|p| {
-								match self.sorter.sort_by{
-									SortBy::None=> FilePath::new(p),
-									SortBy::DateCreated=> {
-										if let Ok(md) = p.metadata() {
-											FilePath::with_date_created(p, md.created().ok())
-										}else{
-											FilePath::new(p)
-										}
-									}
-									SortBy::LastModified=> {
-										if let Ok(md) = p.metadata() {
-											FilePath::with_last_modified(p, md.modified().ok())
-										}else{
-											FilePath::new(p)
-										}
-									}
-									SortBy::LastAccessed=> {
-										if let Ok(md) = p.metadata() {
-											FilePath::with_last_accessed(p, md.accessed().ok())
-										}else{
-											FilePath::new(p)
-										}
-									}
-									SortBy::Size=> {
-										let size = p.metadata().map(|md| md.len()).unwrap_or_default();
-										FilePath::with_size(p, size)
-									}
-								}
-							})
-							);
+							.filter_map(|p| {
+				// only request .metadata if it's required or wanted
+				if !self.should_metadata() {
+					Some(FilePath::new(p))
+				}else{
+					// metadata is needed
+					p
+					.metadata()
+					.map(|md| {
+						self.sorter.sort_by.new_file_path(p, &md)
+					})
+					.ok()
+				}
+			})
+							.collect::<Vec<FilePath>>())
 						}
 						_=> {
 							eprintln!("{}: error: {:?}", &a, &e);
 							err_code(1);
+							None
 						}
-					};
+					}
 				}
+		};
+		
+		if let Some(mut files) = maybe_files{
+			self.sorter.sort(&mut files);
+	let files: Vec<String> = files
+	.into_iter()
+	.filter_map(|fp| fp.path.to_os_string().to_string().ok())
+	.map(|s| if arg_is_dir{
+		trim_folder(&a, s)
+	}else{
+		s
+	})
+	.collect();
+	
+	if self.args.len() > 1 {
+		println!("# {}:", &a);
+	}
+	self.displayer.print(files);
 		}
 	}
 	// end of loop
 	
-	if files.is_empty() {
-		return exit_code;
-	}
-	
-	self.sorter.sort(&mut files);
-	
-	let files: Vec<String> = files
-	.into_iter()
-	.map(|p| p.into_os_string().into_string())
-	.filter_map(Result::ok)
-	.collect();
-	
-	self.displayer.print(files);
-	
 	exit_code
 	}
 	
-	fn print_top_md(name: &str, md: Metadata) -> usize{
-		if md.is_file() {
-			let s = name.trim_start_matches('./');
-			#[cfg(windows)]
-			let s = s.trim_start_matches(".\\");
-			
-			println!("{}", &s);
-			0
-		}else{
-			// trim the folder name from collected paths
-			
+	fn read_dir(&self, name: &str) -> Result<Vec<FilePath >, usize> {
+		fs::read_dir(name)
+		.map_err(|e| match e.kind() {
+			ErrorKind::PermissionDenied => {
+				eprintln!("{}: permission denied", name);
+				1usize
+			}
+			_=> {
+				eprintln!("{}: error: {:?}", name, &e);
+				1usize
+			}
+		})
+		.map(|files| {
+			// filter entries
+			files
+			.filter_map(Result::ok)
+			.filter(|p| {
+				if self.filter.hidden == HiddenOpt::Any{
+					true
+				}else{
+					p.file_name()
+					.to_os_string()
+					.to_string()
+					.map(|s| self.filter.hidden.is_match(&s))
+					.unwrap_or(false)
+				}
+			})
+			// filter and map at the same time because we don't want to call .metadata twice
+			.filter_map(|p| {
+				// only request .metadata if it's required or wanted
+				if !self.should_metadata() {
+					Some(FilePath::new(p))
+				}else{
+					// metadata is needed
+					p
+					.metadata()
+					.map(|md| {
+						self.sorter.sort_by.new_file_path(p, &md)
+					})
+					.ok()
+				}
+			})
+			.collect::<Vec<_>>()
+		})
+	}
+	
+	fn run_pwd(&self) -> usize{
+		match self.read_dir("./") {
+			Err(code)=> code,
+			Ok(mut files) => {
+				self.sorter.sort(&mut files);
+				
+				// trim the "./" prefix
+				let files: Vec<String> = files
+				.into_iter()
+				.filter_map(|fp| fp.path.to_os_string().to_string().ok())
+				.map(|s| s.trim_start_matches("./"))
+				.collect();
+				
+				if !files.is_empty() {
+					self.displayer.print(files);
+				}
+				0
+			}
 		}
+	}
+}
+
+#[cfg(not(windows))]
+fn trim_folder(folder: &str, s: &str) -> String{
+	s.trim_start_matches(folder)
+}
+
+#[cfg(windows)]
+/// trim_folder trims the folder name from a path. 
+/// Since this is targeted for windows, the trimming is case insensitive.
+fn trim_folder(folder: &str, s: &str) -> String{
+	if folder.len() > s.len() {
+		s.to_string()
+	}else{
+		let chars: Vec<_> = folder.chars().collect();
+		s
+		.iter()
+		.enumerate()
+		.skip_while(|(i, c)| {
+			if let Some(x) = chars.get(*i) {
+				x == c || x.to_uppercase() == c.to_uppercase()
+			}else{
+				false
+			}
+		})
+		.map(|(_, c)| c)
+		.collect::<String>()
 	}
 }
