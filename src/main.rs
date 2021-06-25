@@ -1,3 +1,6 @@
+use rs_ls::cmd::Cmd;
+use std::process;
+
 fn main() {
-    println!("Hello, world!");
+	process::exit(Cmd::from_args().run());
 }
