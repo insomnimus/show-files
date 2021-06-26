@@ -53,87 +53,53 @@ impl Displayer {
 }
 
 struct RowBuf {
-    n_col: usize,
-    col_len: usize,
-    col_index: usize,
+    capacity: usize,
+    item_size: usize,
+    cur_items: usize,
     buff: String,
 }
 
 impl RowBuf {
-    fn new(max_size: usize, items: &[String], min_spaces: usize) -> Self {
-        let mut n_col = 1usize;
-        while n_col <= items.len() / 2 {
-            let max = items
-                .chunks(n_col)
-                .map(|i| i.iter().map(String::len).sum::<usize>() + (n_col - 1) * min_spaces)
-                .max()
-                .unwrap_or(100usize);
-
-            if max > max_size {
-                return Self {
-                    n_col: n_col - 1,
-                    col_len: max_size / (n_col - 1),
-                    col_index: 0,
-                    buff: String::new(),
-                };
-            } else {
-                n_col += 1;
-            }
-        }
-        Self {
-            n_col,
-            col_len: max_size / n_col,
-            col_index: 0,
-            buff: String::new(),
-        }
-    }
-
-    fn _new(max_size: usize, items: &[String], min_spaces: usize) -> Self {
-        let mut n_col = items.len();
-        while n_col >= 1 {
-            let max = items
-                .chunks(n_col)
-                .map(|i| i.iter().map(|s| s.len()).sum::<usize>() + min_spaces * (n_col - 1))
-                .max()
-                .unwrap_or(100);
-            if max <= max_size {
-                return Self {
-                    n_col,
-                    col_len: max_size / n_col,
-                    col_index: 0,
-                    buff: String::new(),
-                };
-            } else {
-                n_col /= 2;
-            }
-        }
-
-        Self {
-            n_col: 1,
-            col_len: items.iter().map(|s| s.len()).max().unwrap_or(100),
-            col_index: 0,
-            buff: String::new(),
-        }
-    }
-
-    fn push(&mut self, s: &str) -> Option<String> {
-        if self.col_index >= self.n_col {
-            self.col_index = 0;
-            Some(mem::replace(
-                &mut self.buff,
-                format!("{item:width$}", item = s, width = self.col_len),
-            ))
-        } else {
-            self.col_index += 1;
-            self.buff.push_str(s);
-            let spaces = if self.col_len < s.len() || self.n_col == self.col_index {
-                0
-            } else {
-                self.col_len - s.len()
+    fn new(term_size: usize, items: &[String], min_spaces: usize) -> Self {
+        if items.is_empty() {
+            return Self {
+                capacity: 1,
+                item_size: term_size,
+                cur_items: 0,
+                buff: String::new(),
             };
-            for _ in 0..spaces {
+        }
+
+        let item_size = items.iter().map(String::len).max().unwrap();
+        if term_size <= item_size * 2 {
+            return Self {
+                capacity: 1,
+                cur_items: 0,
+                item_size,
+                buff: String::with_capacity(item_size),
+            };
+        }
+
+        let capacity = term_size % (item_size + min_spaces);
+        Self {
+            capacity,
+            item_size: item_size + min_spaces,
+            cur_items: 0,
+            buff: String::with_capacity(capacity * item_size),
+        }
+    }
+
+    fn push(&mut self, s: String) -> Option<String> {
+        if self.cur_items >= self.capacity {
+            self.cur_items = 1;
+            Some(mem::replace(&mut self.buff, s))
+        } else {
+            let n_spaces = (self.cur_items * self.item_size) - self.buff.len();
+            for _ in 0..n_spaces {
                 self.buff.push(' ');
             }
+            self.buff.push_str(&s);
+            self.cur_items += 1;
             None
         }
     }
@@ -164,7 +130,7 @@ impl Iterator for Rows {
             return None;
         }
         while !self.items.is_empty() {
-            if let Some(s) = self.buff.push(&self.items.remove(0)) {
+            if let Some(s) = self.buff.push(self.items.remove(0)) {
                 return Some(s);
             }
         }
