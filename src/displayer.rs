@@ -61,6 +61,34 @@ struct RowBuf {
 
 impl RowBuf {
     fn new(max_size: usize, items: &[String], min_spaces: usize) -> Self {
+        let mut n_col = 1usize;
+        while n_col <= items.len() / 2 {
+            let max = items
+                .chunks(n_col)
+                .map(|i| i.iter().map(String::len).sum::<usize>() + (n_col - 1) * min_spaces)
+                .max()
+                .unwrap_or(100usize);
+
+            if max > max_size {
+                return Self {
+                    n_col: n_col - 1,
+                    col_len: max_size / (n_col - 1),
+                    col_index: 0,
+                    buff: String::new(),
+                };
+            } else {
+                n_col += 1;
+            }
+        }
+        Self {
+            n_col,
+            col_len: max_size / n_col,
+            col_index: 0,
+            buff: String::new(),
+        }
+    }
+
+    fn _new(max_size: usize, items: &[String], min_spaces: usize) -> Self {
         let mut n_col = items.len();
         while n_col >= 1 {
             let max = items
