@@ -15,7 +15,7 @@ pub fn new() -> App<'static> {
         .about("list files and directories")
         .setting(AppSettings::UnifiedHelpMessage);
 
-    let one_per_line = Arg::new("1-per-line")
+    let one_per_line = Arg::new("one-per-line")
         .short('1')
         .long("one-per-line")
         .about("display files line by line");
