@@ -98,7 +98,7 @@ impl RowBuf {
         } else {
             self.col_index += 1;
             self.buff.push_str(s);
-            let spaces = if self.col_len < s.len() {
+            let spaces = if self.col_len < s.len() || self.n_col == self.col_index {
                 0
             } else {
                 self.col_len - s.len()
