@@ -10,7 +10,7 @@ const SORT_VALUES: &[&str] = &[
 ];
 
 pub fn new() -> App<'static> {
-    let app = App::new("ls")
+    let app = App::new("sf")
         .version(crate_version!())
         .about("list files and directories")
         .setting(AppSettings::UnifiedHelpMessage);
