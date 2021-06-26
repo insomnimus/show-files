@@ -37,7 +37,7 @@ impl SortBy {
         })
     }
 
-    pub fn new_file_path(&self, p: PathBuf, md: &Metadata) -> FilePath {
+    pub fn new_filepath(&self, p: PathBuf, md: &Metadata) -> FilePath {
         match self {
             Self::None | Self::Name => FilePath::new(p),
             Self::Size => FilePath::with_size(p, md.len()),

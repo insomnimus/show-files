@@ -171,17 +171,24 @@ impl Cmd {
                                 })
                                 .map(|iter| {
                                     iter.filter_map(Result::ok)
+                                        // filter and map at the same time, we don't want to call md twice
                                         .filter_map(|p| {
                                             // only request .metadata if it's required or wanted
-                                            if !self.should_metadata() {
+                                            if !self.should_md() {
                                                 Some(FilePath::new(p))
                                             } else {
                                                 // metadata is needed
-                                                p.metadata()
-                                                    .map(|md| {
-                                                        self.sorter.sort_by.new_file_path(p, &md)
-                                                    })
-                                                    .ok()
+                                                p.metadata().ok().and_then(|md| {
+                                                    if !self.filter.file_type.is_match(&md) {
+                                                        None
+                                                    } else {
+                                                        Some(
+                                                            self.sorter
+                                                                .sort_by
+                                                                .new_filepath(p, &md),
+                                                        )
+                                                    }
+                                                })
                                             }
                                         })
                                         .collect::<Vec<FilePath>>()
@@ -248,16 +255,18 @@ impl Cmd {
                                 .unwrap_or(false)
                         }
                     })
-                    // filter and map at the same time because we don't want to call .metadata twice
+                    // filter and map at the same time because we don't want to call md twice
                     .filter_map(|p| {
-                        // only request .metadata if it's required or wanted
-                        if !self.should_metadata() {
+                        if !self.should_md() {
                             Some(FilePath::new(p.path()))
                         } else {
-                            // metadata is needed
-                            p.metadata()
-                                .map(|md| self.sorter.sort_by.new_file_path(p.path(), &md))
-                                .ok()
+                            p.metadata().ok().and_then(|md| {
+                                if self.filter.file_type.is_match(&md) {
+                                    Some(self.sorter.sort_by.new_filepath(p.path(), &md))
+                                } else {
+                                    None
+                                }
+                            })
                         }
                     })
                     .collect::<Vec<_>>()
@@ -285,7 +294,7 @@ impl Cmd {
         }
     }
 
-    fn should_metadata(&self) -> bool {
+    fn should_md(&self) -> bool {
         self.filter.file_type != FileType::Any
             || !matches!(self.sorter.sort_by, SortBy::None | SortBy::Name)
     }
