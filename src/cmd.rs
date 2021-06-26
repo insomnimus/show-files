@@ -137,7 +137,7 @@ impl Cmd {
             let maybe_files = match fs::metadata(&a) {
                 Ok(md) => {
                     if md.is_file() {
-                        println!("\n{}", &a);
+                        println!("{}", &a);
                         None
                     } else {
                         arg_is_dir = true;
