@@ -164,7 +164,7 @@ impl Cmd {
                             None
                         }
                         // the arg is a glob pattern here
-                        ErrorKind::NotFound => {
+                        _ => {
                             glob::glob_with(a, opt)
                                 .map_err(|e| {
                                     eprintln!("{}: error: {:?}", &a, &e);
@@ -195,11 +195,6 @@ impl Cmd {
                                         .collect::<Vec<FilePath>>()
                                 })
                                 .ok()
-                        }
-                        _ => {
-                            eprintln!("{}: error: {:?}", &a, &e);
-                            err_code(1);
-                            None
                         }
                     }
                 }
@@ -235,11 +230,11 @@ impl Cmd {
             .map_err(|e| match e.kind() {
                 ErrorKind::PermissionDenied => {
                     eprintln!("{}: permission denied", name);
-                    1i32
+                    1
                 }
                 _ => {
                     eprintln!("{}: error: {:?}", name, &e);
-                    1i32
+                    1
                 }
             })
             .map(|files| {
@@ -261,7 +256,14 @@ impl Cmd {
                         if !self.should_md() {
                             Some(FilePath::new(p.path()))
                         } else {
-                            p.metadata().ok().and_then(|md| {
+                            // on windows, DirEntry::metadata does not traverse simlinks but we want that behaviour
+                            if cfg!(windows) {
+                                p.path().metadata()
+                            } else {
+                                p.metadata()
+                            }
+                            .ok()
+                            .and_then(|md| {
                                 if self.filter.file_type.is_match(&md) {
                                     Some(self.sorter.sort_by.new_filepath(p.path(), &md))
                                 } else {
