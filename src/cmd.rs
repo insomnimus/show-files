@@ -1,3 +1,4 @@
+use atty::Stream;
 use glob::{self, MatchOptions};
 use std::{fs, io::ErrorKind};
 
@@ -74,7 +75,7 @@ impl Cmd {
             SpaceOpt::Bare
         };
 
-        let one_per_line = m.is_present("one-per-line");
+        let one_per_line = m.is_present("one-per-line") || !atty::is(Stream::Stdout);
 
         let args = m
             .values_of("pattern")

@@ -71,7 +71,7 @@ impl RowBuf {
         }
 
         let item_size = items.iter().map(String::len).max().unwrap();
-        if term_size <= item_size * 2 {
+        if term_size <= item_size {
             return Self {
                 capacity: 1,
                 cur_items: 0,
@@ -80,7 +80,7 @@ impl RowBuf {
             };
         }
 
-        let capacity = term_size % (item_size + min_spaces);
+        let capacity = term_size / (item_size + min_spaces);
         Self {
             capacity,
             item_size: item_size + min_spaces,
@@ -115,9 +115,9 @@ pub struct Rows {
 }
 
 impl Rows {
-    pub fn new(max_size: usize, items: Vec<String>, max_spaces: usize) -> Self {
+    pub fn new(max_size: usize, items: Vec<String>, min_spaces: usize) -> Self {
         Self {
-            buff: RowBuf::new(max_size, &items, max_spaces),
+            buff: RowBuf::new(max_size, &items, min_spaces),
             items,
         }
     }

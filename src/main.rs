@@ -1,4 +1,4 @@
-use rs_ls::cmd::Cmd;
+use show_files::cmd::Cmd;
 use std::process;
 
 fn main() {
