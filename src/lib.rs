@@ -11,7 +11,12 @@ fn is_glob(s: &str) -> bool {
 
 #[cfg(not(windows))]
 fn trim_folder(folder: &str, s: &str) -> String {
-    s.trim_start_matches(folder)
+    let p = s.trim_start_matches(folder);
+    if s.ends_with('/') {
+        p.to_string()
+    } else {
+        p.trim_start_matches('/').to_string()
+    }
 }
 
 #[cfg(windows)]
@@ -32,6 +37,7 @@ fn trim_folder(folder: &str, s: &str) -> String {
                 }
             })
             .map(|(_, c)| c)
+            .skip_while(|c| *c == '\\')
             .collect::<String>()
     }
 }
