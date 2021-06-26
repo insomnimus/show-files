@@ -158,9 +158,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "rs-ls"
-version = "0.1.6"
+name = "show-files"
+version = "0.2.0"
 dependencies = [
+ "atty",
  "clap",
  "glob",
  "terminal_size",

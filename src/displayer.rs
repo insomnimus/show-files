@@ -40,7 +40,7 @@ impl Displayer {
     }
 
     fn print_cell(&self, mut files: Vec<String>) {
-        let term_size = terminal_size().map(|x| x.0 .0).unwrap_or(128) - 1;
+        let term_size = terminal_size().map(|x| x.0 .0 * 8 / 10).unwrap_or(128);
         for f in files.iter_mut() {
             *f = self.space_opt.format(f);
         }
