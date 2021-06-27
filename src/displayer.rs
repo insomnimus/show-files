@@ -10,8 +10,13 @@ pub enum SpaceOpt {
 impl SpaceOpt {
     pub fn format(&self, s: &str) -> String {
         match self {
+            #[cfg(windows)]
             Self::Quoted if s.contains(' ') => {
-                format!("'{}'", s.replace('\'', "\\'"))
+                format!("'{}'", s.replace('`', "``").replace('\'', "`'"))
+            }
+            #[cfg(not(windows))]
+            Self::Quoted if s.contains(' ') => {
+                format!("'{}'", s.replace('\\', "\\\\").replace('\'', "\\'"))
             }
             #[cfg(windows)]
             Self::Escaped if s.contains(' ') => s.replace(' ', "` "),
