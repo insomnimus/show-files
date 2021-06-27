@@ -12,11 +12,11 @@ impl SpaceOpt {
         match self {
             #[cfg(windows)]
             Self::Quoted if s.contains(' ') => {
-                format!("'{}'", s.replace('`', "``").replace('\'', "`'"))
+                format!("'{}'", s.replace('\'', "`'"))
             }
             #[cfg(not(windows))]
             Self::Quoted if s.contains(' ') => {
-                format!("'{}'", s.replace('\\', "\\\\").replace('\'', "\\'"))
+                format!("'{}'", s.replace('\'', "\\'"))
             }
             #[cfg(windows)]
             Self::Escaped if s.contains(' ') => s.replace(' ', "` "),
