@@ -13,6 +13,9 @@ impl SpaceOpt {
             Self::Quoted if s.contains(' ') => {
                 format!("'{}'", s.replace('\'', "\\'"))
             }
+            #[cfg(windows)]
+            Self::Escaped if s.contains(' ') => s.replace(' ', "` "),
+            #[cfg(not(windows))]
             Self::Escaped if s.contains(' ') => s.replace(' ', "\\ "),
             Self::Bare | Self::Escaped | Self::Quoted => s.to_string(),
         }
