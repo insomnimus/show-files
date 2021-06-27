@@ -1,38 +1,53 @@
-use std::mem;
+use super::table::RowBuf;
 use terminal_size::terminal_size;
 
+/// SpaceOpt defines how paths with spaces should be displayed.
 pub enum SpaceOpt {
+    /// Do not format, just print.
     Bare,
+    /// Single quote if path has spaces but doesn't have `'`; double quote if path has spaces and `'`.
     Quoted,
+    /// Do not quote, escape spaces and the escape characters (`\\` on linux and `\`` on windows).
     Escaped,
 }
 
 impl SpaceOpt {
+    /// Formats a string, according to the variant of `self`.
     pub fn format(&self, s: &str) -> String {
         match self {
+            // windows escape character is "`".
             #[cfg(windows)]
-            Self::Quoted if s.contains(' ') => {
-                format!("'{}'", s.replace('\'', "`'"))
+            Self::Quoted if s.contains(' ') && s.contains('\'') => {
+                format!(r#""{}""#, s.replace('`', "``"))
             }
+            // Same with above but on linux the escape char is "\".
             #[cfg(not(windows))]
+            Self::Quoted if s.contains(' ') && s.contains('\'') => {
+                format!(r#""{}""#, s.replace('\\', "\\\\"))
+            }
+            // No need to escape here, `s` is guaranteed to not contain `'`.
             Self::Quoted if s.contains(' ') => {
-                format!("'{}'", s.replace('\'', "\\'"))
+                format!("'{}'", s)
             }
             #[cfg(windows)]
-            Self::Escaped if s.contains(' ') => s.replace(' ', "` "),
+            Self::Escaped if s.contains(' ') => s.replace('`', "``").replace(' ', "` "),
             #[cfg(not(windows))]
-            Self::Escaped if s.contains(' ') => s.replace(' ', "\\ "),
+            Self::Escaped if s.contains(' ') => s.replace('\\', "\\\\").replace(' ', "\\ "),
             Self::Bare | Self::Escaped | Self::Quoted => s.to_string(),
         }
     }
 }
 
+/// Displayer stores configuration that controls how files are printed to the screen.
 pub struct Displayer {
+    /// If set to `true`, every file be printed in a separate line.
     pub one_per_line: bool,
+    /// `space_opt` dictates how paths containing spaces should be formatted, for example quoted or escaped.
     pub space_opt: SpaceOpt,
 }
 
 impl Displayer {
+    /// `print` will pretty print the given paths (as Strings).
     pub fn print(&self, files: Vec<String>) {
         if self.one_per_line {
             self.print_one_per_line(&files);
@@ -47,8 +62,9 @@ impl Displayer {
         }
     }
 
+    /// `print_cell` will print each item as a table cell.
     fn print_cell(&self, mut files: Vec<String>) {
-        let term_size = terminal_size().map(|x| x.0 .0 * 8 / 10).unwrap_or(128);
+        let term_size = terminal_size().map(|x| x.0 .0).unwrap_or(128);
         for f in files.iter_mut() {
             *f = self.space_opt.format(f);
         }
@@ -60,72 +76,15 @@ impl Displayer {
     }
 }
 
-struct RowBuf {
-    capacity: usize,
-    item_size: usize,
-    cur_items: usize,
-    buff: String,
-}
-
-impl RowBuf {
-    fn new(term_size: usize, items: &[String], min_spaces: usize) -> Self {
-        if items.is_empty() {
-            return Self {
-                capacity: 1,
-                item_size: term_size,
-                cur_items: 0,
-                buff: String::new(),
-            };
-        }
-
-        let item_size = items.iter().map(String::len).max().unwrap();
-        if term_size <= item_size {
-            return Self {
-                capacity: 1,
-                cur_items: 0,
-                item_size,
-                buff: String::with_capacity(item_size),
-            };
-        }
-
-        let capacity = term_size / (item_size + min_spaces);
-        Self {
-            capacity,
-            item_size: item_size + min_spaces,
-            cur_items: 0,
-            buff: String::with_capacity(capacity * item_size),
-        }
-    }
-
-    fn push(&mut self, s: String) -> Option<String> {
-        if self.cur_items >= self.capacity {
-            self.cur_items = 1;
-            Some(mem::replace(&mut self.buff, s))
-        } else {
-            let n_spaces = (self.cur_items * self.item_size) - self.buff.len();
-            for _ in 0..n_spaces {
-                self.buff.push(' ');
-            }
-            self.buff.push_str(&s);
-            self.cur_items += 1;
-            None
-        }
-    }
-
-    fn flush(&mut self) -> String {
-        mem::take(&mut self.buff)
-    }
-}
-
 pub struct Rows {
-    buff: RowBuf,
+    buf: RowBuf,
     items: Vec<String>,
 }
 
 impl Rows {
     pub fn new(max_size: usize, items: Vec<String>, min_spaces: usize) -> Self {
         Self {
-            buff: RowBuf::new(max_size, &items, min_spaces),
+            buf: RowBuf::new(max_size, &items, min_spaces),
             items,
         }
     }
@@ -138,14 +97,14 @@ impl Iterator for Rows {
             return None;
         }
         while !self.items.is_empty() {
-            if let Some(s) = self.buff.push(self.items.remove(0)) {
+            if let Some(s) = self.buf.push(self.items.remove(0)) {
                 return Some(s);
             }
         }
-        if self.buff.buff.is_empty() {
+        if self.buf.is_empty() {
             None
         } else {
-            Some(self.buff.flush())
+            Some(self.buf.flush())
         }
     }
 }

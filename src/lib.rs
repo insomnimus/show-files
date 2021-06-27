@@ -1,3 +1,5 @@
+#![feature(iter_intersperse)]
+
 mod app;
 pub mod cmd;
 mod displayer;
@@ -41,3 +43,4 @@ fn trim_folder(folder: &str, s: &str) -> String {
             .collect::<String>()
     }
 }
+mod table;
