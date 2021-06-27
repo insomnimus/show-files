@@ -108,3 +108,28 @@ impl Iterator for Rows {
         }
     }
 }
+
+#[test]
+fn test_row_len() {
+    fn veccer(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| s.to_string()).collect::<Vec<String>>()
+    }
+
+    let mut items = veccer(&[
+        "fasdfsdfffffffffff",
+        "afsfsfsfsfsfsfsfswwwwwbasxefgasdfq",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "1234123412341234123412342134",
+        "fafa..:::::::::!!@fafafsdfiiiii",
+    ]);
+
+    items.push((0..50).map(|_| 'a').collect());
+
+    let rows = Rows::new(100, items, 4);
+
+    for row in rows {
+        if row.len() > 100 {
+            panic!("row.len is greater than 100:\n{}", &row);
+        }
+    }
+}

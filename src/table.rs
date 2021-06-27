@@ -22,7 +22,9 @@ impl RowBuf {
 
             // check if total width fits the term size
             let total_width: usize = cols.iter().intersperse(&min_spaces).sum();
-            if n_col * 2 >= items.len() && total_width * 2 >= width || total_width == width {
+            if total_width == width
+                || (total_width <= width && n_col * 2 >= items.len() && total_width * 2 >= width)
+            {
                 // perfect
                 return Self {
                     offsets: calc_offsets(&cols, min_spaces),
@@ -109,4 +111,18 @@ fn test_rowbuf() {
         buf.push("pls work".to_string()),
         Some("1  2  3".to_string()),
     );
+}
+
+#[test]
+fn test_n_columns() {
+    fn stringer(n: usize) -> String {
+        (0..n).map(|_| 'a').collect()
+    }
+
+    let items: Vec<String> = (25..30).map(stringer).collect();
+
+    let buf = RowBuf::new(64, &items, 4);
+
+    assert_eq!(0usize, buf.offsets[0]);
+    assert_eq!(2, buf.offsets.len());
 }
