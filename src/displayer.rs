@@ -93,9 +93,6 @@ impl Rows {
 impl Iterator for Rows {
     type Item = String;
     fn next(&mut self) -> Option<String> {
-        if self.items.is_empty() {
-            return None;
-        }
         while !self.items.is_empty() {
             if let Some(s) = self.buf.push(self.items.remove(0)) {
                 return Some(s);
