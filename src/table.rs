@@ -32,7 +32,7 @@ impl RowBuf {
                     buf: String::with_capacity(width),
                 };
             } else if total_width < width {
-                prev_cols = cols.clone();
+                prev_cols = cols;
                 n_col += 1;
             } else {
                 // return the previously calculated value that fit
