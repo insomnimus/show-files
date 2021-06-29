@@ -1,3 +1,4 @@
+#![deny(clippy::all)]
 #![feature(iter_intersperse)]
 
 mod app;
@@ -22,7 +23,7 @@ fn trim_folder(folder: &str, s: &str) -> String {
 }
 
 #[cfg(windows)]
-/// trim_folder trims the folder name from a path.
+/// `trim_folder` trims the folder name from a path.
 /// Since this is targeted for windows, the trimming is case insensitive.
 fn trim_folder(folder: &str, s: &str) -> String {
     if folder.len() > s.len() {
@@ -32,11 +33,9 @@ fn trim_folder(folder: &str, s: &str) -> String {
         s.chars()
             .enumerate()
             .skip_while(|(i, c)| {
-                if let Some(x) = chars.get(*i) {
-                    x == c || x.to_uppercase().eq(c.to_uppercase())
-                } else {
-                    false
-                }
+                chars
+                    .get(*i)
+                    .map_or(false, |x| x == c || x.to_uppercase().eq(c.to_uppercase()))
             })
             .map(|(_, c)| c)
             .skip_while(|c| *c == '\\')

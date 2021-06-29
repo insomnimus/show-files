@@ -1,7 +1,7 @@
 use super::table::RowBuf;
 use terminal_size::terminal_size;
 
-/// SpaceOpt defines how paths with spaces should be displayed.
+/// `SpaceOpt` defines how paths with spaces should be displayed.
 pub enum SpaceOpt {
     /// Do not format, just print.
     Bare,
@@ -64,8 +64,8 @@ impl Displayer {
 
     /// `print_cell` will print each item as a table cell.
     fn print_cell(&self, mut files: Vec<String>) {
-        let term_size = terminal_size().map(|x| x.0 .0).unwrap_or(128);
-        for f in files.iter_mut() {
+        let term_size = terminal_size().map_or(128, |x| x.0 .0);
+        for f in &mut files {
             *f = self.space_opt.format(f);
         }
 
@@ -109,7 +109,10 @@ impl Iterator for Rows {
 #[test]
 fn test_row_len() {
     fn veccer(items: &[&str]) -> Vec<String> {
-        items.iter().map(|s| s.to_string()).collect::<Vec<String>>()
+        items
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect::<Vec<String>>()
     }
 
     let mut items = veccer(&[

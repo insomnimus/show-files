@@ -23,7 +23,7 @@ impl SortBy {
             Self::DateCreated => cmp_opt(&a.date_created, &b.date_created),
             Self::LastModified => cmp_opt(&a.last_modified, &b.last_modified),
             Self::LastAccessed => cmp_opt(&a.last_accessed, &b.last_accessed),
-        })
+        });
     }
 
     pub fn sort_descending(&self, files: &mut Vec<FilePath>) {
@@ -34,7 +34,7 @@ impl SortBy {
             Self::DateCreated => cmp_opt(&a.date_created, &b.date_created),
             Self::LastModified => cmp_opt(&a.last_modified, &b.last_modified),
             Self::LastAccessed => cmp_opt(&a.last_accessed, &b.last_accessed),
-        })
+        });
     }
 
     pub fn new_filepath(&self, p: PathBuf, md: &Metadata) -> FilePath {

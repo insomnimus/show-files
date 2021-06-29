@@ -18,6 +18,7 @@ pub struct Cmd {
 }
 
 impl Cmd {
+    #[must_use]
     pub fn from_args() -> Self {
         let m = app::new().get_matches();
 
@@ -96,6 +97,7 @@ impl Cmd {
         }
     }
 
+    #[must_use]
     pub fn run(&self) -> i32 {
         // handle the most common case first so it's more efficient
         if self.args.is_empty() {
@@ -108,7 +110,7 @@ impl Cmd {
             require_literal_leading_dot: matches!(self.filter.hidden, HiddenType::NotHidden),
         };
 
-        let mut exit_code = 0i32;
+        let mut exit_code = 0_i32;
 
         // helper closure to set the exit code
         // exit code 0: success
@@ -175,21 +177,21 @@ impl Cmd {
                                         // filter and map at the same time, we don't want to call md twice
                                         .filter_map(|p| {
                                             // only request .metadata if it's required or wanted
-                                            if !self.should_md() {
-                                                Some(FilePath::new(p))
-                                            } else {
+                                            if self.should_md() {
                                                 // metadata is needed
                                                 p.metadata().ok().and_then(|md| {
-                                                    if !self.filter.file_type.is_match(&md) {
-                                                        None
-                                                    } else {
+                                                    if self.filter.file_type.is_match(&md) {
                                                         Some(
                                                             self.sorter
                                                                 .sort_by
                                                                 .new_filepath(p, &md),
                                                         )
+                                                    } else {
+                                                        None
                                                     }
                                                 })
+                                            } else {
+                                                Some(FilePath::new(p))
                                             }
                                         })
                                         .collect::<Vec<FilePath>>()
@@ -227,12 +229,11 @@ impl Cmd {
 
     fn read_dir(&self, name: &str) -> Result<Vec<FilePath>, i32> {
         fs::read_dir(name)
-            .map_err(|e| match e.kind() {
-                ErrorKind::PermissionDenied => {
+            .map_err(|e| {
+                if e.kind() == ErrorKind::PermissionDenied {
                     eprintln!("{}: permission denied", name);
                     1
-                }
-                _ => {
+                } else {
                     eprintln!("{}: error: {:?}", name, &e);
                     1
                 }
@@ -253,9 +254,7 @@ impl Cmd {
                     })
                     // filter and map at the same time because we don't want to call md twice
                     .filter_map(|p| {
-                        if !self.should_md() {
-                            Some(FilePath::new(p.path()))
-                        } else {
+                        if self.should_md() {
                             // on windows, DirEntry::metadata does not traverse simlinks but we want that behaviour
                             if cfg!(windows) {
                                 p.path().metadata()
@@ -270,6 +269,8 @@ impl Cmd {
                                     None
                                 }
                             })
+                        } else {
+                            Some(FilePath::new(p.path()))
                         }
                     })
                     .collect::<Vec<_>>()

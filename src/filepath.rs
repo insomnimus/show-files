@@ -12,7 +12,7 @@ impl Default for FilePath {
     fn default() -> Self {
         Self {
             path: PathBuf::new(),
-            size: 0u64,
+            size: 0_u64,
             date_created: None,
             last_modified: None,
             last_accessed: None,
@@ -24,7 +24,7 @@ impl FilePath {
     pub fn new(path: PathBuf) -> Self {
         Self {
             path,
-            ..Default::default()
+            ..Self::default()
         }
     }
 
@@ -32,7 +32,7 @@ impl FilePath {
         Self {
             path,
             size,
-            ..Default::default()
+            ..Self::default()
         }
     }
 
@@ -40,7 +40,7 @@ impl FilePath {
         Self {
             path,
             date_created,
-            ..Default::default()
+            ..Self::default()
         }
     }
 
@@ -48,7 +48,7 @@ impl FilePath {
         Self {
             path,
             last_modified,
-            ..Default::default()
+            ..Self::default()
         }
     }
 
@@ -56,7 +56,7 @@ impl FilePath {
         Self {
             path,
             last_accessed,
-            ..Default::default()
+            ..Self::default()
         }
     }
 }

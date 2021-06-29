@@ -9,9 +9,9 @@ pub struct RowBuf {
 impl RowBuf {
     pub fn new(width: usize, items: &[String], min_spaces: usize) -> Self {
         let mut n_col: usize = 1;
-        let mut prev_cols = vec![0usize];
+        let mut prev_cols = vec![0_usize];
         while n_col <= items.len() {
-            let mut cols: Vec<usize> = (0..n_col).map(|_| 0usize).collect();
+            let mut cols: Vec<usize> = (0..n_col).map(|_| 0_usize).collect();
             for chunk in items.chunks(n_col) {
                 for (i, s) in chunk.iter().enumerate() {
                     if s.len() > cols[i] {
@@ -123,6 +123,6 @@ fn test_n_columns() {
 
     let buf = RowBuf::new(64, &items, 4);
 
-    assert_eq!(0usize, buf.offsets[0]);
+    assert_eq!(0_usize, buf.offsets[0]);
     assert_eq!(2, buf.offsets.len());
 }
