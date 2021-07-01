@@ -49,7 +49,13 @@ impl Cmd {
                 },
             )
         } else {
-            Sorter::new(false, SortBy::None)
+            if cfg!(windows) {
+                // windows returns files in alphabetical order
+                Sorter::new(false, SortBy::None)
+            } else {
+                // linux will have none of the automatic sort thing, it hands files randomly
+                Sorter::new(false, SortBy::Name)
+            }
         };
 
         let file_type = if m.is_present("files") {
