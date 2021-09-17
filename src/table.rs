@@ -47,19 +47,22 @@ impl RowBuf {
 		}
 	}
 
-	pub fn push(&mut self, s: String) -> Option<String> {
+	pub fn push(&mut self, s: &str) -> Option<String> {
 		if self.index >= self.offsets.len() {
 			self.index = 1;
-			Some(mem::replace(&mut self.buf, s))
+			let val = self.buf.clone();
+			self.buf.clear();
+			self.buf.push_str(s);
+			Some(val)
 		} else if self.index == 0 {
 			self.index += 1;
-			self.buf.push_str(&s);
+			self.buf.push_str(s);
 			None
 		} else {
 			while self.buf.len() < self.offsets[self.index] {
 				self.buf.push(' ');
 			}
-			self.buf.push_str(&s);
+			self.buf.push_str(s);
 			self.index += 1;
 			None
 		}

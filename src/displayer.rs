@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use terminal_size::terminal_size;
 
 use super::table::RowBuf;
@@ -85,14 +83,16 @@ impl Displayer {
 
 pub struct Rows {
 	buf: RowBuf,
-	items: VecDeque<String>,
+	items: Vec<String>,
+	index: usize,
 }
 
 impl Rows {
 	pub fn new(max_size: usize, items: Vec<String>, min_spaces: usize) -> Self {
 		Self {
 			buf: RowBuf::new(max_size, &items, min_spaces),
-			items: items.into(),
+			items,
+			index: 0,
 		}
 	}
 }
@@ -101,11 +101,13 @@ impl Iterator for Rows {
 	type Item = String;
 
 	fn next(&mut self) -> Option<String> {
-		while !self.items.is_empty() {
-			if let Some(s) = self.buf.push(self.items.pop_front().unwrap()) {
+		while self.index < self.items.len() {
+			self.index += 1;
+			if let Some(s) = self.buf.push(&self.items[self.index - 1]) {
 				return Some(s);
 			}
 		}
+
 		if self.buf.is_empty() {
 			None
 		} else {
