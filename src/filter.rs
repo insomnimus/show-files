@@ -2,39 +2,39 @@ use std::fs::Metadata;
 
 #[derive(PartialEq)]
 pub enum FileType {
-    Any,
-    File,
-    Folder,
+	Any,
+	File,
+	Folder,
 }
 
 impl FileType {
-    pub fn is_match(&self, md: &Metadata) -> bool {
-        match self {
-            Self::Any => true,
-            Self::File => md.is_file(),
-            Self::Folder => md.is_dir(),
-        }
-    }
+	pub fn is_match(&self, md: &Metadata) -> bool {
+		match self {
+			Self::Any => true,
+			Self::File => md.is_file(),
+			Self::Folder => md.is_dir(),
+		}
+	}
 }
 
 #[derive(PartialEq)]
 pub enum HiddenType {
-    Any,
-    Hidden,
-    NotHidden,
+	Any,
+	Hidden,
+	NotHidden,
 }
 
 impl HiddenType {
-    pub fn is_match(&self, name: &str) -> bool {
-        match self {
-            Self::Any => true,
-            Self::Hidden => name.starts_with('.'),
-            Self::NotHidden => !name.starts_with('.'),
-        }
-    }
+	pub fn is_match(&self, name: &str) -> bool {
+		match self {
+			Self::Any => true,
+			Self::Hidden => name.starts_with('.'),
+			Self::NotHidden => !name.starts_with('.'),
+		}
+	}
 }
 
 pub struct Filter {
-    pub file_type: FileType,
-    pub hidden: HiddenType,
+	pub file_type: FileType,
+	pub hidden: HiddenType,
 }
