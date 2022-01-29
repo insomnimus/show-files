@@ -50,8 +50,7 @@ impl RowBuf {
 	pub fn push(&mut self, s: &str) -> Option<String> {
 		if self.index >= self.offsets.len() {
 			self.index = 1;
-			let val = self.buf.clone();
-			self.buf.clear();
+			let val = mem::take(&mut self.buf);
 			self.buf.push_str(s);
 			Some(val)
 		} else if self.index == 0 {

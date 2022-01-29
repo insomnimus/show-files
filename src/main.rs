@@ -1,9 +1,5 @@
-#![deny(clippy::all)]
-
-use std::process;
-
-use show_files::cmd::Cmd;
+use show_files::cmd;
 
 fn main() {
-	process::exit(Cmd::from_args().run());
+	std::process::exit(cmd::run());
 }

@@ -3,24 +3,13 @@ use std::{
 	time::SystemTime,
 };
 
+#[derive(Default)]
 pub struct FilePath {
 	pub path: PathBuf,
 	pub size: u64,
 	pub date_created: Option<SystemTime>,
 	pub last_modified: Option<SystemTime>,
 	pub last_accessed: Option<SystemTime>,
-}
-
-impl Default for FilePath {
-	fn default() -> Self {
-		Self {
-			path: PathBuf::new(),
-			size: 0_u64,
-			date_created: None,
-			last_modified: None,
-			last_accessed: None,
-		}
-	}
 }
 
 impl FilePath {

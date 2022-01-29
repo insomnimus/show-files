@@ -1,4 +1,4 @@
-#![deny(clippy::all)]
+#![feature(iter_intersperse)]
 
 mod app;
 pub mod cmd;
@@ -6,6 +6,7 @@ mod displayer;
 mod filepath;
 mod filter;
 mod sorter;
+mod table;
 
 fn is_glob(s: &str) -> bool {
 	s.chars().any(|c| c == '*' || c == '?' || c == '[')
@@ -41,4 +42,3 @@ fn trim_folder(folder: &str, s: &str) -> String {
 			.collect::<String>()
 	}
 }
-mod table;

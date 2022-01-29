@@ -27,132 +27,22 @@ use crate::{
 	},
 };
 
-pub struct Cmd {
-	args: Vec<String>,
+pub struct Cmd<'a> {
+	args: Vec<&'a str>,
 	filter: Filter,
 	sorter: Sorter,
 	displayer: Displayer,
 }
 
-impl Cmd {
-	#[must_use]
-	pub fn from_args() -> Self {
-		let m = app::new().get_matches();
-
-		let sorter = if let Some(v) = m.value_of("sort-ascending") {
-			Sorter::new(
-				false,
-				match v {
-					"none" => SortBy::None,
-					"size" => SortBy::Size,
-					"name" => SortBy::Name,
-					"date-created" => SortBy::DateCreated,
-					"last-modified" => SortBy::LastModified,
-					"last-accessed" => SortBy::LastAccessed,
-					_ => unreachable!(),
-				},
-			)
-		} else if let Some(v) = m.value_of("sort-descending") {
-			Sorter::new(
-				true,
-				match v {
-					"none" => SortBy::None,
-					"size" => SortBy::Size,
-					"name" => SortBy::Name,
-					"date-created" => SortBy::DateCreated,
-					"last-modified" => SortBy::LastModified,
-					"last-accessed" => SortBy::LastAccessed,
-					_ => unreachable!(),
-				},
-			)
-		} else if cfg!(windows) {
-			// windows returns files in alphabetical order
-			Sorter::new(false, SortBy::None)
-		} else {
-			// linux will have none of the automatic sort thing, it hands files randomly
-			Sorter::new(false, SortBy::Name)
-		};
-
-		let file_type = if m.is_present("files") {
-			FileType::File
-		} else if m.is_present("directories") {
-			FileType::Folder
-		} else {
-			FileType::Any
-		};
-
-		let hidden = if m.is_present("all") {
-			HiddenType::Any
-		} else if m.is_present("hidden") {
-			HiddenType::Hidden
-		} else {
-			HiddenType::NotHidden
-		};
-
-		let space_opt = if m.is_present("quote") {
-			SpaceOpt::Quoted
-		} else if m.is_present("escape") {
-			SpaceOpt::Escaped
-		} else {
-			SpaceOpt::Bare
-		};
-
-		let one_per_line = m.is_present("one-per-line") || !atty::is(Stream::Stdout);
-
-		let args = m
-			.values_of("pattern")
-			.map(|i| i.map(String::from).collect::<Vec<_>>())
-			.unwrap_or_default();
-
-		let filter = Filter { file_type, hidden };
-		let displayer = Displayer {
-			one_per_line,
-			space_opt,
-		};
-
-		Self {
-			args,
-			filter,
-			sorter,
-			displayer,
-		}
-	}
-
-	#[must_use]
-	pub fn run(&self) -> i32 {
-		// handle the most common case first so it's more efficient
-		if self.args.is_empty() {
-			return self.run_pwd();
-		}
-
+impl<'a> Cmd<'a> {
+	fn run(self) -> i32 {
 		let opt = MatchOptions {
 			case_sensitive: false,
 			require_literal_separator: true,
 			require_literal_leading_dot: matches!(self.filter.hidden, HiddenType::NotHidden),
 		};
 
-		let mut exit_code = 0_i32;
-
-		// helper closure to set the exit code
-		// exit code 0: success
-		// exit code 1: system error
-		// exit code 2: user error
-		// exit code 3: system error + user error
-		let mut err_code = |n: i32| {
-			if n == 1 {
-				exit_code = match exit_code {
-					0 => 1,
-					2 => 3,
-					_ => exit_code,
-				};
-			} else if n == 2 {
-				exit_code = match exit_code {
-					0 => 2,
-					1 => 3,
-					_ => exit_code,
-				};
-			}
-		};
+		let mut n_err = 0;
 
 		for a in &self.args {
 			let mut arg_is_dir = false;
@@ -166,8 +56,8 @@ impl Cmd {
 					} else {
 						arg_is_dir = true;
 						match self.read_dir(a) {
-							Err(code) => {
-								err_code(code);
+							Err(_) => {
+								n_err += 1;
 								None
 							}
 							Ok(files) => Some(files),
@@ -178,33 +68,31 @@ impl Cmd {
 					match e.kind() {
 						ErrorKind::NotFound if !super::is_glob(a) => {
 							eprintln!("{}: the system cannot find the file specified", a);
-							err_code(2);
+							n_err += 1;
 							None
 						}
 						ErrorKind::PermissionDenied => {
 							eprintln!("{}: permission denied", &a);
-							err_code(1);
+							n_err += 1;
 							None
 						}
 						// the arg is a glob pattern here
 						_ => {
-							glob::glob_with(a, opt)
-								.map_err(|e| {
-									eprintln!("{}: error: {:?}", &a, &e);
-									err_code(2);
+							let vals = glob::glob_with(a, opt)
+								.unwrap_or_else(|e| {
+									eprintln!("{a}: error: {e}");
+									std::process::exit(n_err + 1);
 								})
-								.map(|iter| {
-									iter.filter_map(Result::ok)
+									.flatten()
                                         // filter and map at the same time, we don't want to call md twice
                                         .filter_map(|p| {
                                             // only request .metadata if it's required or wanted
                                             if self.should_md() {
-                                                // metadata is needed
-                                                p.metadata().ok().and_then(|md| {
-                                                    if self.filter.file_type.is_match(&md) {
-                                                        Some(
-                                                            self.sorter
-                                                                .sort_by
+																							p.metadata().ok().and_then(|md| {
+																								if self.filter.file_type.is_match(&md) {
+																									Some(
+																									self.sorter
+																									.sort_by
                                                                 .new_filepath(p, &md),
                                                         )
                                                     } else {
@@ -215,9 +103,8 @@ impl Cmd {
                                                 Some(FilePath::new(p))
                                             }
                                         })
-                                        .collect::<Vec<FilePath>>()
-								})
-								.ok()
+                                        .collect::<Vec<FilePath>>();
+							Some(vals)
 						}
 					}
 				}
@@ -225,7 +112,7 @@ impl Cmd {
 
 			if let Some(mut files) = maybe_files {
 				self.sorter.sort(&mut files);
-				let files: Vec<String> = files
+				let files: Vec<_> = files
 					.into_iter()
 					.filter_map(|fp| fp.path.into_os_string().into_string().ok())
 					.map(|s| {
@@ -245,7 +132,7 @@ impl Cmd {
 		}
 		// end of loop
 
-		exit_code
+		n_err
 	}
 
 	fn read_dir(&self, name: &str) -> Result<Vec<FilePath>, i32> {
@@ -298,7 +185,7 @@ impl Cmd {
 			})
 	}
 
-	fn run_pwd(&self) -> i32 {
+	fn _run_pwd(&self) -> i32 {
 		match self.read_dir("./") {
 			Err(code) => code,
 			Ok(mut files) => {
@@ -323,4 +210,78 @@ impl Cmd {
 		self.filter.file_type != FileType::Any
 			|| !matches!(self.sorter.sort_by, SortBy::None | SortBy::Name)
 	}
+}
+
+pub fn run() -> i32 {
+	let m = app::new().get_matches();
+
+	let sorter = if let Some(v) = m.value_of("ascending") {
+		Sorter::new(
+			false,
+			match v {
+				"none" => SortBy::None,
+				"size" => SortBy::Size,
+				"name" => SortBy::Name,
+				"created" => SortBy::DateCreated,
+				"modified" => SortBy::LastModified,
+				"accessed" => SortBy::LastAccessed,
+				_ => unreachable!(),
+			},
+		)
+	} else if let Some(v) = m.value_of("descending") {
+		Sorter::new(
+			true,
+			match v {
+				"none" => SortBy::None,
+				"size" => SortBy::Size,
+				"name" => SortBy::Name,
+				"created" => SortBy::DateCreated,
+				"modified" => SortBy::LastModified,
+				"accessed" => SortBy::LastAccessed,
+				_ => unreachable!(),
+			},
+		)
+	} else if cfg!(windows) {
+		// windows returns files in alphabetical order
+		Sorter::new(false, SortBy::None)
+	} else {
+		// linux will have none of the automatic sort thing, it hands files randomly
+		Sorter::new(false, SortBy::Name)
+	};
+
+	let file_type = if m.is_present("file") {
+		FileType::File
+	} else if m.is_present("dir") {
+		FileType::Folder
+	} else {
+		FileType::Any
+	};
+
+	let hidden = if m.is_present("all") {
+		HiddenType::Any
+	} else if m.is_present("hidden") {
+		HiddenType::Hidden
+	} else {
+		HiddenType::NotHidden
+	};
+
+	let space_opt = SpaceOpt::Bare;
+	let one_per_line = m.is_present("1aline") || !atty::is(Stream::Stdout);
+
+	let args = m.values_of("pattern").unwrap().collect::<Vec<_>>();
+
+	let filter = Filter { file_type, hidden };
+	let displayer = Displayer {
+		one_per_line,
+		space_opt,
+	};
+
+	let cmd = Cmd {
+		args,
+		filter,
+		sorter,
+		displayer,
+	};
+
+	cmd.run()
 }
