@@ -19,7 +19,7 @@ pub enum SortBy {
 }
 
 impl SortBy {
-	pub fn sort_ascending(&self, files: &mut Vec<FilePath>) {
+	pub fn sort_ascending(&self, files: &mut [FilePath]) {
 		files.sort_by(|a, b| match self {
 			Self::Size => a.size.cmp(&b.size),
 			Self::None => Ordering::Equal,
@@ -30,7 +30,7 @@ impl SortBy {
 		});
 	}
 
-	pub fn sort_descending(&self, files: &mut Vec<FilePath>) {
+	pub fn sort_descending(&self, files: &mut [FilePath]) {
 		files.sort_by(|b, a| match self {
 			Self::Size => a.size.cmp(&b.size),
 			Self::None => Ordering::Greater,
@@ -65,7 +65,7 @@ impl Sorter {
 		}
 	}
 
-	pub fn sort(&self, files: &mut Vec<FilePath>) {
+	pub fn sort(&self, files: &mut [FilePath]) {
 		if self.descending {
 			self.sort_by.sort_descending(files);
 		} else {
